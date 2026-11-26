@@ -1,0 +1,521 @@
+@model ClaimDetailsViewModel
+@{
+    var claim = Model.Claim;
+    var status = claim.Status.StatusName;
+    var isStaff = User.IsInRole(RoleNames.Secretary) || User.IsInRole(RoleNames.Admin);
+    ViewData["Title"] = claim.Reference;
+    ViewData["Subtitle"] = isStaff ? claim.Claimant.FullName : "Claim details and status";
+
+    var total = claim.FeesAmount ?? Model.Items.Sum(i => i.FeesAmount);
+    var canSubmitDraft = Model.CanEdit && status == ClaimStatusNames.Draft;
+    var canResubmit = Model.CanEdit && status == ClaimStatusNames.CorrectionRequested;
+    var canReview = Model.CanReview;
+    var allowedTypes = string.Join(", ", Model.AllowedExtensions);
+}
+<div class="breadcrumb">
+    <a asp-action="Index">@(isStaff ? "Claims" : "My claims")</a>
+    @Html.Raw(Icons.Svg("chevron-right", 13))
+    <span>@claim.Reference</span>
+</div>
+
+<div class="detail-head">
+    <div>
+        <div class="detail-title">
+            <h2>@claim.Reference</h2>
+            <span class="status @ClaimStatusNames.Slug(status)">@status</span>
+        </div>
+        <div class="detail-meta">
+            <span>@(isStaff ? claim.Claimant.FullName : $"Claim date {Formatting.Date(claim.ClaimDate)}")</span>
+            @if (isStaff)
+            {
+                <span class="dot-sep">Claim date @Formatting.Date(claim.ClaimDate)</span>
+            }
+            <span class="dot-sep">Created @Formatting.Timestamp(claim.CreatedAt)</span>
+            @if (claim.SubmittedAt.HasValue)
+            {
+                <span class="dot-sep">Submitted @Formatting.Timestamp(claim.SubmittedAt)</span>
+            }
+        </div>
+    </div>
+    <div class="page-head-actions">
+        @if (Model.CanEdit)
+        {
+            <a class="btn btn-secondary" asp-action="Edit" asp-route-id="@claim.ClaimId">
+                @Html.Raw(Icons.Svg("edit", 15)) Edit claim
+            </a>
+        }
+        @if (canSubmitDraft)
+        {
+            <form method="post" asp-action="Submit" asp-route-id="@claim.ClaimId">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary">
+                    @Html.Raw(Icons.Svg("send", 15)) Submit for review
+                </button>
+            </form>
+        }
+        @if (canResubmit)
+        {
+            <form method="post" asp-action="Resubmit" asp-route-id="@claim.ClaimId">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary">
+                    @Html.Raw(Icons.Svg("send", 15)) Resubmit claim
+                </button>
+            </form>
+        }
+        @if (Model.Report is not null)
+        {
+            <a class="btn btn-secondary" asp-controller="Reports" asp-action="Download" asp-route-id="@Model.Report.ReportId">
+                @Html.Raw(Icons.Svg("download", 15)) Claim report
+            </a>
+        }
+        @if (Model.CanGenerateReport)
+        {
+            <form method="post" asp-controller="Reports" asp-action="Generate" asp-route-claimId="@claim.ClaimId">
+                @Html.AntiForgeryToken()
+                <button type="submit" class="btn btn-primary">
+                    @Html.Raw(Icons.Svg("printer", 15)) Generate report
+                </button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (Model.OpenCorrection is not null)
+{
+    <div class="banner warn">
+        <div class="banner-icon">@Html.Raw(Icons.Svg("alert", 17))</div>
+        <div class="grow">
+            <h4>Correction requested by the Secretary</h4>
+            <p>@Model.OpenCorrection.CorrectionComment</p>
+            <p class="note mt-1">
+                Requested by @Model.OpenCorrection.RequestedByUser.FullName on
+                @Formatting.Timestamp(Model.OpenCorrection.RequestedAt).
+            </p>
+        </div>
+        @if (Model.CanEdit)
+        {
+            <a class="btn btn-warn btn-sm" style="margin-left:auto" asp-action="Edit" asp-route-id="@claim.ClaimId">
+                @Html.Raw(Icons.Svg("edit", 14)) Correct claim
+            </a>
+        }
+    </div>
+}
+else if (status == ClaimStatusNames.Declined && !string.IsNullOrWhiteSpace(claim.RejectionComment))
+{
+    <div class="banner danger">
+        <div class="banner-icon">@Html.Raw(Icons.Svg("x", 17))</div>
+        <div>
+            <h4>Claim declined</h4>
+            <p>@claim.RejectionComment</p>
+        </div>
+    </div>
+}
+else if (status == ClaimStatusNames.Accepted)
+{
+    <div class="banner success">
+        <div class="banner-icon">@Html.Raw(Icons.Svg("check", 17))</div>
+        <div>
+            <h4>Claim approved</h4>
+            <p>
+                This claim was accepted@(claim.Reviewer is not null ? $" by {claim.Reviewer.FullName}" : "")@(claim.ReviewedAt.HasValue ? $" on {Formatting.Timestamp(claim.ReviewedAt)}" : "").@(Model.Report is null ? " Generate the claim report when you are ready." : " The claim report has been generated.")
+            </p>
+        </div>
+    </div>
+}
+
+<div class="detail-grid">
+    <div class="detail-main">
+        <div class="card">
+            <div class="summary-strip">
+                <div class="summary-cell">
+                    <div class="summary-label">Claim total</div>
+                    <div class="summary-value brand">@Formatting.Money(total)</div>
+                </div>
+                <div class="summary-cell">
+                    <div class="summary-label">Work records</div>
+                    <div class="summary-value">@Model.Items.Count</div>
+                </div>
+                <div class="summary-cell">
+                    <div class="summary-label">Supporting documents</div>
+                    <div class="summary-value">@Model.Documents.Count</div>
+                </div>
+            </div>
+
+            <div class="card-head">
+                <div>
+                    <h3>Work records</h3>
+                    <p>Recording dates, programmes and fees captured on this claim.</p>
+                </div>
+            </div>
+
+            @if (Model.Items.Count == 0)
+            {
+                <div class="empty">
+                    <div class="empty-icon">@Html.Raw(Icons.Svg("file", 24))</div>
+                    <h3>No work records</h3>
+                    <p>This claim does not have any work records yet.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="data">
+                        <thead>
+                            <tr>
+                                <th style="width:40px;">#</th>
+                                <th>Recording date</th>
+                                <th>Programme</th>
+                                <th class="right">Fee</th>
+                                <th class="right">Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @{ var row = 1; }
+                            @foreach (var item in Model.Items)
+                            {
+                                <tr>
+                                    <td class="muted small">@row</td>
+                                    <td class="nowrap">@Formatting.Date(item.RecordingDate)</td>
+                                    <td class="cell-primary">@item.ProgrammeTitle</td>
+                                    <td class="right amount">@Formatting.Money(item.Rate)</td>
+                                    <td class="right amount">@Formatting.Money(item.FeesAmount)</td>
+                                </tr>
+                                row++;
+                            }
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="4" class="right strong" style="padding:12px 16px; border-top:1px solid var(--line);">Total claim amount</td>
+                                <td class="right amount" style="padding:12px 16px; border-top:1px solid var(--line); color:var(--brand); font-size:15px;">@Formatting.Money(total)</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            }
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Supporting documents</h3>
+                    <p>Booking confirmations, studio records and other evidence.</p>
+                </div>
+                <span class="count-chip">@Model.Documents.Count</span>
+            </div>
+            <div class="card-body">
+                @if (Model.Documents.Count == 0)
+                {
+                    <p class="note">No supporting documents have been attached to this claim.</p>
+                }
+                else
+                {
+                    <div class="doc-list">
+                        @foreach (var document in Model.Documents)
+                        {
+                            <div class="doc-item">
+                                <div class="doc-icon">@Html.Raw(Icons.Svg("file", 15))</div>
+                                <div class="grow">
+                                    <div class="doc-name">@document.FileName</div>
+                                    <div class="doc-meta">
+                                        Uploaded by @document.UploadedByUser.FullName • @Formatting.Timestamp(document.UploadedAt)
+                                    </div>
+                                </div>
+                                <div class="doc-actions">
+                                    <a class="btn btn-secondary btn-sm" asp-controller="Documents" asp-action="Download" asp-route-id="@document.DocumentId">
+                                        @Html.Raw(Icons.Svg("download", 14)) Download
+                                    </a>
+                                    @if (Model.CanUpload)
+                                    {
+                                        <form method="post" asp-controller="Documents" asp-action="Delete" asp-route-id="@document.DocumentId"
+                                              data-confirm="Remove '@document.FileName' from this claim?">
+                                            @Html.AntiForgeryToken()
+                                            <button type="submit" class="icon-btn danger" aria-label="Remove @document.FileName">
+                                                @Html.Raw(Icons.Svg("trash", 14))
+                                            </button>
+                                        </form>
+                                    }
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (Model.CanUpload)
+                {
+                    <form method="post" asp-controller="Documents" asp-action="Upload" asp-route-claimId="@claim.ClaimId"
+                          enctype="multipart/form-data" class="upload-box">
+                        @Html.AntiForgeryToken()
+                        <label class="label" for="supportingFile">Attach a supporting document</label>
+                        <div class="file-input-row mt-1">
+                            <input id="supportingFile" type="file" name="file" required
+                                   accept="@(string.Join(",", Model.AllowedExtensions))"
+                                   data-file-preview="supportingFileName" />
+                            <button type="submit" class="btn btn-secondary btn-sm">
+                                @Html.Raw(Icons.Svg("upload", 14)) Upload
+                            </button>
+                        </div>
+                        <div class="hint mt-1" id="supportingFileName">No file selected</div>
+                        <div class="hint">Allowed: @allowedTypes. Maximum size: @Model.MaxUploadMegabytes MB.</div>
+                    </form>
+                }
+            </div>
+        </div>
+
+        @if (Model.Corrections.Count > 0)
+        {
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Correction history</h3>
+                        <p>Requests raised by the Secretary and their progress.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="correction-list">
+                        @foreach (var correction in Model.Corrections)
+                        {
+                            var resolved = correction.CorrectedAt.HasValue;
+                            <div class="correction-entry @(resolved ? "resolved" : "")">
+                                <div class="correction-head">
+                                    <span>
+                                        <span class="strong">@correction.RequestedByUser.FullName</span>
+                                        requested a correction • @Formatting.Timestamp(correction.RequestedAt)
+                                    </span>
+                                    <span class="status @(resolved ? "accepted" : "correction")">@(resolved ? "Resolved" : "Awaiting artist")</span>
+                                </div>
+                                <p class="correction-text">@correction.CorrectionComment</p>
+                                @if (resolved)
+                                {
+                                    <p class="note mt-1">Corrected and resubmitted @Formatting.Timestamp(correction.CorrectedAt).</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        @if (isStaff)
+        {
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Artist details</h3>
+                        <p>Information captured on the artist's account.</p>
+                    </div>
+                    <a class="link-arrow" asp-controller="Artists" asp-action="Edit" asp-route-id="@claim.Claimant.UserId">
+                        Manage artist @Html.Raw(Icons.Svg("arrow-right", 13))
+                    </a>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid two">
+                        <dl class="meta-list">
+                            <div class="meta-row"><dt>Full name</dt><dd>@claim.Claimant.FullName</dd></div>
+                            <div class="meta-row"><dt>Username</dt><dd>@claim.Claimant.Username</dd></div>
+                            <div class="meta-row"><dt>Email</dt><dd>@claim.Claimant.Email</dd></div>
+                            <div class="meta-row"><dt>Contact number</dt><dd>@(claim.Claimant.ContactNumber ?? "—")</dd></div>
+                        </dl>
+                        <dl class="meta-list">
+                            <div class="meta-row"><dt>ID number</dt><dd>@(claim.Claimant.IdNumber ?? "—")</dd></div>
+                            <div class="meta-row"><dt>Address</dt><dd>@(claim.Claimant.Address ?? "—")</dd></div>
+                            <div class="meta-row"><dt>Account</dt><dd>@(claim.Claimant.IsActive ? "Active" : "Inactive")</dd></div>
+                            <div class="meta-row"><dt>Registered</dt><dd>@Formatting.Date(claim.Claimant.CreatedAt)</dd></div>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <aside class="detail-side">
+        @if (canReview)
+        {
+            <div class="card review-panel">
+                <div class="card-head">
+                    <div>
+                        <h3>Review this claim</h3>
+                        <p>Confirm the work records and documents before deciding.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <form method="post" asp-action="Review" asp-route-id="@claim.ClaimId">
+                        @Html.AntiForgeryToken()
+                        <div class="field">
+                            <label class="label" for="reviewComment">Comment / reason <span class="req">*</span></label>
+                            <textarea id="reviewComment" name="comment" class="textarea" rows="4"
+                                      placeholder="Required when requesting a correction or declining the claim."></textarea>
+                            <span class="hint">The artist can see this comment when a correction is requested.</span>
+                        </div>
+
+                        <div class="review-actions">
+                            <button type="submit" name="decision" value="correction" class="btn btn-warn correction">
+                                @Html.Raw(Icons.Svg("alert", 15)) Request correction
+                            </button>
+                            <button type="submit" name="decision" value="accept" class="btn btn-success accept">
+                                @Html.Raw(Icons.Svg("check", 15)) Accept claim
+                            </button>
+                            <button type="submit" name="decision" value="decline" class="btn btn-danger decline">
+                                @Html.Raw(Icons.Svg("x", 15)) Decline
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        }
+
+        @if (Model.Report is not null)
+        {
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Claim report</h3>
+                        <p>Generated after the claim was approved.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <dl class="meta-list">
+                        <div class="meta-row"><dt>Report number</dt><dd>@Model.Report.ReportNumber</dd></div>
+                        <div class="meta-row"><dt>Generated</dt><dd>@Formatting.Timestamp(Model.Report.GeneratedAt)</dd></div>
+                    </dl>
+                    <div class="form-actions mt-2">
+                        <a class="btn btn-primary btn-block" asp-controller="Reports" asp-action="Download" asp-route-id="@Model.Report.ReportId">
+                            @Html.Raw(Icons.Svg("download", 15)) Download PDF
+                        </a>
+                    </div>
+                    <p class="note mt-2">Open the PDF to view or print the claim report for authorisation.</p>
+                </div>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Claim information</h3>
+                </div>
+            </div>
+            <div class="card-body">
+                <dl class="meta-list">
+                    <div class="meta-row"><dt>Reference</dt><dd>@claim.Reference</dd></div>
+                    <div class="meta-row"><dt>Status</dt><dd><span class="status @ClaimStatusNames.Slug(status)">@status</span></dd></div>
+                    <div class="meta-row"><dt>Claim date</dt><dd>@Formatting.Date(claim.ClaimDate)</dd></div>
+                    <div class="meta-row"><dt>Submitted</dt><dd>@Formatting.Timestamp(claim.SubmittedAt)</dd></div>
+                    @if (claim.Reviewer is not null)
+                    {
+                        <div class="meta-row"><dt>Reviewed by</dt><dd>@claim.Reviewer.FullName</dd></div>
+                    }
+                    @if (claim.ReviewedAt.HasValue)
+                    {
+                        <div class="meta-row"><dt>Reviewed on</dt><dd>@Formatting.Timestamp(claim.ReviewedAt)</dd></div>
+                    }
+                    @if (claim.UpdatedAt.HasValue)
+                    {
+                        <div class="meta-row"><dt>Last updated</dt><dd>@Formatting.Timestamp(claim.UpdatedAt)</dd></div>
+                    }
+                </dl>
+            </div>
+        </div>
+
+        @if (claim.Claimant.BankingDetail is { } banking)
+        {
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Banking details</h3>
+                        <p>Used for payment after approval.</p>
+                    </div>
+                    <span class="doc-icon">@Html.Raw(Icons.Svg("bank", 15))</span>
+                </div>
+                <div class="card-body">
+                    <dl class="meta-list">
+                        <div class="meta-row"><dt>Bank</dt><dd>@banking.Bank</dd></div>
+                        <div class="meta-row"><dt>Branch</dt><dd>@banking.Branch</dd></div>
+                        <div class="meta-row"><dt>Branch code</dt><dd>@banking.BranchCode</dd></div>
+                    </dl>
+                </div>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Status timeline</h3>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="timeline">
+                    <div class="tl-item">
+                        <div class="tl-dot">@Html.Raw(Icons.Svg("file", 11))</div>
+                        <div>
+                            <div class="tl-title">Claim created</div>
+                            <div class="tl-time">@Formatting.Timestamp(claim.CreatedAt)</div>
+                        </div>
+                    </div>
+
+                    @if (claim.SubmittedAt.HasValue)
+                    {
+                        <div class="tl-item">
+                            <div class="tl-dot done">@Html.Raw(Icons.Svg("send", 11))</div>
+                            <div>
+                                <div class="tl-title">@(status == ClaimStatusNames.Resubmitted ? "Corrected and resubmitted" : "Submitted for review")</div>
+                                <div class="tl-time">@Formatting.Timestamp(claim.SubmittedAt)</div>
+                            </div>
+                        </div>
+                    }
+
+                    @foreach (var correction in Model.Corrections.OrderBy(c => c.RequestedAt))
+                    {
+                        <div class="tl-item">
+                            <div class="tl-dot warn">@Html.Raw(Icons.Svg("alert", 11))</div>
+                            <div>
+                                <div class="tl-title">Correction requested</div>
+                                <div class="tl-time">@Formatting.Timestamp(correction.RequestedAt)</div>
+                                <div class="tl-note">@correction.CorrectionComment</div>
+                            </div>
+                        </div>
+
+                        @if (correction.CorrectedAt.HasValue)
+                        {
+                            <div class="tl-item">
+                                <div class="tl-dot done">@Html.Raw(Icons.Svg("check", 11))</div>
+                                <div>
+                                    <div class="tl-title">Correction applied</div>
+                                    <div class="tl-time">@Formatting.Timestamp(correction.CorrectedAt)</div>
+                                </div>
+                            </div>
+                        }
+                    }
+
+                    @if (claim.ReviewedAt.HasValue)
+                    {
+                        <div class="tl-item">
+                            <div class="tl-dot @(status == ClaimStatusNames.Declined ? "danger" : "done")">
+                                @Html.Raw(Icons.Svg(status == ClaimStatusNames.Declined ? "x" : "check", 11))
+                            </div>
+                            <div>
+                                <div class="tl-title">@(status == ClaimStatusNames.Declined ? "Claim declined" : "Claim accepted")</div>
+                                <div class="tl-time">
+                                    @Formatting.Timestamp(claim.ReviewedAt)
+                                    @if (claim.Reviewer is not null)
+                                    {
+                                        <text> • @claim.Reviewer.FullName</text>
+                                    }
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @if (!isStaff && !Model.CanEdit && status is not (ClaimStatusNames.Accepted or ClaimStatusNames.Declined))
+        {
+            <div class="card">
+                <div class="card-body">
+                    <p class="note">
+                        This claim is with the Secretary for review. You will be able to edit it if a correction is requested.
+                    </p>
+                </div>
+            </div>
+        }
+    </aside>
+</div>

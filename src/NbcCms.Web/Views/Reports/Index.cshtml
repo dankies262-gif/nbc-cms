@@ -1,0 +1,159 @@
+@model ReportsIndexViewModel
+@{
+    ViewData["Title"] = "Reports";
+    ViewData["Subtitle"] = "Generate and download approved claim reports";
+}
+<div class="page-head">
+    <div>
+        <h2>Claim reports</h2>
+        <p>Generate the final claim report once the Secretary has accepted a claim.</p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-secondary" asp-controller="Claims" asp-action="Index" asp-route-status="@ClaimStatusNames.Accepted">
+            @Html.Raw(Icons.Svg("file", 15)) Accepted claims
+        </a>
+    </div>
+</div>
+
+<div class="mini-strip">
+    <div class="mini-item">
+        <div class="mini-label">Awaiting a report</div>
+        <div class="mini-value">@Model.ReadyForReport.Count</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Reports generated</div>
+        <div class="mini-value">@Model.Generated.Count</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Ready value</div>
+        <div class="mini-value">@Formatting.Money(Model.ReadyForReport.Sum(c => c.Amount))</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Latest report</div>
+        <div class="mini-value small" style="font-size:14px; padding-top:5px;">
+            @(Model.Generated.Count == 0 ? "—" : Formatting.Ago(Model.Generated[0].GeneratedAt))
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-head">
+        <div>
+            <h3>Ready for report generation</h3>
+            <p>Accepted claims that do not yet have a report.</p>
+        </div>
+        <span class="count-chip">@Model.ReadyForReport.Count</span>
+    </div>
+
+    @if (Model.ReadyForReport.Count == 0)
+    {
+        <div class="empty">
+            <div class="empty-icon">@Html.Raw(Icons.Svg("check", 24))</div>
+            <h3>Nothing to generate</h3>
+            <p>All accepted claims already have a report. Newly accepted claims will appear here.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Claim</th>
+                        <th>Artist</th>
+                        <th>Programme</th>
+                        <th class="right">Amount</th>
+                        <th>Submitted</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var claim in Model.ReadyForReport)
+                    {
+                        <tr>
+                            <td>
+                                <a class="table-link" asp-controller="Claims" asp-action="Details" asp-route-id="@claim.ClaimId">
+                                    @claim.Reference
+                                </a>
+                                <div class="cell-sub">Claim date @Formatting.Date(claim.ClaimDate)</div>
+                            </td>
+                            <td>
+                                <div>@claim.ClaimantName</div>
+                                <div class="cell-sub">@claim.ClaimantEmail</div>
+                            </td>
+                            <td class="small">@claim.ProgrammeTitle</td>
+                            <td class="right amount">@Formatting.Money(claim.Amount)</td>
+                            <td class="small muted nowrap">@Formatting.Ago(claim.SubmittedAt)</td>
+                            <td class="cell-actions">
+                                <form method="post" asp-action="Generate" asp-route-claimId="@claim.ClaimId">
+                                    @Html.AntiForgeryToken()
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        @Html.Raw(Icons.Svg("printer", 14)) Generate report
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="card">
+    <div class="card-head">
+        <div>
+            <h3>Generated reports</h3>
+            <p>The most recent approved claim reports. Reports can be downloaded again at any time.</p>
+        </div>
+        <span class="count-chip">@Model.Generated.Count</span>
+    </div>
+
+    @if (Model.Generated.Count == 0)
+    {
+        <div class="empty">
+            <div class="empty-icon">@Html.Raw(Icons.Svg("download", 24))</div>
+            <h3>No reports yet</h3>
+            <p>Generated claim reports will be listed here with a download link.</p>
+        </div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Report number</th>
+                        <th>Claim</th>
+                        <th>Artist</th>
+                        <th>Generated</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var report in Model.Generated)
+                    {
+                        <tr>
+                            <td>
+                                <div class="cell-primary">@report.ReportNumber</div>
+                                <div class="cell-sub">@report.FileName</div>
+                            </td>
+                            <td>
+                                <a class="table-link" asp-controller="Claims" asp-action="Details" asp-route-id="@report.ClaimId">
+                                    @report.Claim.Reference
+                                </a>
+                            </td>
+                            <td>@report.Claim.Claimant.FullName</td>
+                            <td class="small muted nowrap">@Formatting.Timestamp(report.GeneratedAt)</td>
+                            <td class="cell-actions">
+                                <a class="btn btn-secondary btn-sm" asp-action="Download" asp-route-id="@report.ReportId">
+                                    @Html.Raw(Icons.Svg("download", 14)) PDF
+                                </a>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

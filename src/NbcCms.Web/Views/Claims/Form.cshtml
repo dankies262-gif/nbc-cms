@@ -1,0 +1,258 @@
+@model ClaimFormViewModel
+@{
+    var isEdit = Model.ClaimId.HasValue;
+    var title = !isEdit ? "New claim" : Model.IsCorrection ? "Correct claim" : "Edit claim";
+    ViewData["Title"] = title;
+    ViewData["Subtitle"] = isEdit ? Model.Reference : "Capture your work records and submit";
+    var formAction = isEdit ? "Edit" : "New";
+    var today = DateTime.Today.ToString("yyyy-MM-dd");
+    var primaryLabel = Model.IsCorrection ? "Resubmit claim" : "Submit for review";
+    var primaryIntent = Model.IsCorrection ? "resubmit" : "submit";
+    var secondaryLabel = isEdit ? "Save changes" : "Save draft";
+    var initialTotal = Model.Items.Sum(i => i.Rate ?? 0);
+}
+<div class="breadcrumb">
+    <a asp-action="Index">My claims</a>
+    @Html.Raw(Icons.Svg("chevron-right", 13))
+    <span>@title</span>
+</div>
+
+<div class="page-head">
+    <div>
+        <h2>@title</h2>
+        <p>@(isEdit ? $"Update {Model.Reference} and save your changes." : "Add each programme you worked on as a separate work record.")</p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-secondary" asp-action="Index">Cancel</a>
+    </div>
+</div>
+
+@if (Model.IsCorrection && !string.IsNullOrWhiteSpace(Model.CorrectionComment))
+{
+    <div class="banner warn">
+        <div class="banner-icon">@Html.Raw(Icons.Svg("alert", 17))</div>
+        <div>
+            <h4>The Secretary requested a correction</h4>
+            <p>@Model.CorrectionComment</p>
+        </div>
+    </div>
+}
+
+<form method="post" asp-action="@formAction" asp-route-id="@Model.ClaimId" data-claim-form novalidate>
+    @Html.AntiForgeryToken()
+    <input type="hidden" name="intent" value="save" data-intent-input />
+
+    <div class="validation-summary-errors @(ViewData.ModelState.IsValid ? "validation-summary-valid" : "")" asp-validation-summary="ModelOnly"></div>
+    @Html.ValidationMessage("Items", "", new { @class = "field-validation-error" })
+
+    <div class="detail-grid">
+        <div class="detail-main">
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Claim details</h3>
+                        <p>Claims are linked to your artist account automatically.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid two">
+                        <div class="field">
+                            <label asp-for="ClaimDate" class="label">Claim date <span class="req">*</span></label>
+                            <input asp-for="ClaimDate" type="date" class="input" max="@today" asp-format="{0:yyyy-MM-dd}" />
+                            <span asp-validation-for="ClaimDate" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <span class="label">Claim reference</span>
+                            <input class="input" value="@(isEdit ? Model.Reference : "Assigned on save")" readonly />
+                            <span class="hint">Generated automatically by NBC-CMS.</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Work records</h3>
+                        <p>Recording date, programme and fee for each item.</p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" id="addItemBtn">
+                        @Html.Raw(Icons.Svg("plus", 14)) Add work record
+                    </button>
+                </div>
+                <div class="card-body">
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th style="width:170px;">Recording date</th>
+                                <th>Programme</th>
+                                <th style="width:150px;">Fee (N$)</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody data-items-body>
+                            @for (var i = 0; i < Model.Items.Count; i++)
+                            {
+                                <tr class="item-row">
+                                    <td data-label="Recording date">
+                                        <input asp-for="Items[i].RecordingDate" type="date" class="input" max="@today" asp-format="{0:yyyy-MM-dd}" />
+                                        <span asp-validation-for="Items[i].RecordingDate" class="field-validation-error"></span>
+                                    </td>
+                                    <td data-label="Programme">
+                                        <select asp-for="Items[i].ProgrammeTitle" class="select">
+                                            <option value="">Select programme</option>
+                                            @foreach (var programme in Model.Programmes)
+                                            {
+                                                <option value="@programme.ProgrammeName">@programme.ProgrammeName</option>
+                                            }
+                                        </select>
+                                        <span asp-validation-for="Items[i].ProgrammeTitle" class="field-validation-error"></span>
+                                    </td>
+                                    <td data-label="Fee (N$)">
+                                        <input asp-for="Items[i].Rate" type="number" step="0.01" min="0.01" class="input money-input" inputmode="decimal" placeholder="0.00" />
+                                        <div class="row-error"></div>
+                                        <span asp-validation-for="Items[i].Rate" class="field-validation-error"></span>
+                                    </td>
+                                    <td>
+                                        <button type="button" class="icon-btn danger remove-row" aria-label="Remove work record">
+                                            @Html.Raw(Icons.Svg("x", 15))
+                                        </button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    @if (Model.Programmes.Count == 0)
+                    {
+                        <div class="banner info mt-2">
+                            <div class="banner-icon">@Html.Raw(Icons.Svg("tv", 16))</div>
+                            <div>
+                                <h4>No active programmes</h4>
+                                <p>Ask the Secretary to add the programme you worked on before submitting this claim.</p>
+                            </div>
+                        </div>
+                    }
+
+                    <div class="items-total">
+                        <span class="label">Total claim amount</span>
+                        <span class="value" id="claimTotal">@Formatting.Money(initialTotal)</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <aside class="detail-side">
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Before you submit</h3>
+                        <p>Check the details below.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <dl class="meta-list">
+                        <div class="meta-row">
+                            <dt>Work records</dt>
+                            <dd id="claimItemCount">@Model.Items.Count</dd>
+                        </div>
+                        <div class="meta-row">
+                            <dt>Claim total</dt>
+                            <dd id="claimTotalSide">@Formatting.Money(initialTotal)</dd>
+                        </div>
+                        @if (isEdit && !string.IsNullOrWhiteSpace(Model.Status))
+                        {
+                            <div class="meta-row">
+                                <dt>Current status</dt>
+                                <dd><span class="status @ClaimStatusNames.Slug(Model.Status)">@Model.Status</span></dd>
+                            </div>
+                        }
+                    </dl>
+
+                    <div class="divider"></div>
+
+                    <div class="form-actions" style="flex-direction:column; align-items:stretch;">
+                        <button type="submit" class="btn btn-primary btn-block" data-intent="@primaryIntent">
+                            @Html.Raw(Icons.Svg("send", 15)) @primaryLabel
+                        </button>
+                        <button type="submit" class="btn btn-secondary btn-block" data-intent="save">
+                            @secondaryLabel
+                        </button>
+                    </div>
+
+                    <p class="note mt-2">
+                        @if (Model.IsCorrection)
+                        {
+                            <span>Resubmitting returns the claim to the Secretary for review.</span>
+                        }
+                        else
+                        {
+                            <span>Submitting locks the claim for review. You can still edit drafts before submitting.</span>
+                        }
+                    </p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Guidance</h3>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="list-clean">
+                        <li class="list-row" style="padding-top:0;">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("calendar", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">Recording dates</div>
+                                <div class="list-sub">Use the date the work was recorded, not the date you submit.</div>
+                            </div>
+                        </li>
+                        <li class="list-row">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("tv", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">One record per programme</div>
+                                <div class="list-sub">Add a separate row for every programme or recording session.</div>
+                            </div>
+                        </li>
+                        <li class="list-row" style="padding-bottom:0;">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("upload", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">Supporting documents</div>
+                                <div class="list-sub">Attach booking confirmations and studio records after saving.</div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <template id="itemRowTemplate">
+        <tr class="item-row">
+            <td data-label="Recording date">
+                <input type="date" name="Items[__INDEX__].RecordingDate" id="Items___INDEX____RecordingDate" class="input" max="@today" />
+                <div class="row-error"></div>
+            </td>
+            <td data-label="Programme">
+                <select name="Items[__INDEX__].ProgrammeTitle" id="Items___INDEX____ProgrammeTitle" class="select">
+                    <option value="">Select programme</option>
+                    @foreach (var programme in Model.Programmes)
+                    {
+                        <option value="@programme.ProgrammeName">@programme.ProgrammeName</option>
+                    }
+                </select>
+                <div class="row-error"></div>
+            </td>
+            <td data-label="Fee (N$)">
+                <input type="number" step="0.01" min="0.01" name="Items[__INDEX__].Rate" id="Items___INDEX____Rate" class="input money-input" inputmode="decimal" placeholder="0.00" />
+                <div class="row-error"></div>
+            </td>
+            <td>
+                <button type="button" class="icon-btn danger remove-row" aria-label="Remove work record">
+                    @Html.Raw(Icons.Svg("x", 15))
+                </button>
+            </td>
+        </tr>
+    </template>
+</form>

@@ -1,0 +1,163 @@
+﻿@{
+    var controller = ViewContext.RouteData.Values["controller"]?.ToString() ?? string.Empty;
+    var action = ViewContext.RouteData.Values["action"]?.ToString() ?? string.Empty;
+    var fullName = User.FindFirst("FullName")?.Value ?? User.Identity?.Name ?? "User";
+    var roleLabel = User.FindFirst("RoleLabel")?.Value ?? string.Empty;
+    var isStaff = User.IsInRole(RoleNames.Secretary) || User.IsInRole(RoleNames.Admin);
+    var initials = string.Join("", fullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(part => part[0])).ToUpperInvariant();
+    var pageTitle = ViewData["Title"] as string ?? "Dashboard";
+    var pageSubtitle = ViewData["Subtitle"] as string ?? string.Empty;
+    var currentScope = Context.Request.Query["scope"].ToString();
+
+    string Nav(string targetController, string? targetAction = null, string? targetScope = null)
+    {
+        var sameController = controller.Equals(targetController, StringComparison.OrdinalIgnoreCase);
+        var sameAction = targetAction is null or "*"
+            || action.Equals(targetAction, StringComparison.OrdinalIgnoreCase);
+        var scopeMatches = targetScope is null or "*"
+            || string.Equals(currentScope, targetScope, StringComparison.OrdinalIgnoreCase);
+
+        return sameController && sameAction && scopeMatches ? "nav-link active" : "nav-link";
+    }
+}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@pageTitle • NBC Claims Management</title>
+    <link rel="icon" type="image/png" href="~/img/nbc-logo.png" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="app-body">
+    <div class="app-shell">
+        <aside class="sidebar" id="sidebar">
+            <a class="sidebar-brand" asp-controller="Dashboard" asp-action="Index" aria-label="NBC Claims Management home">
+                <img src="~/img/nbc-logo.png" alt="Namibian Broadcasting Corporation" />
+            </a>
+
+            <nav aria-label="Main navigation">
+                <div class="nav-section">
+                    <div class="nav-label">Workspace</div>
+                    <a class="@Nav("Dashboard")" asp-controller="Dashboard" asp-action="Index">
+                        @Html.Raw(Icons.Svg("grid")) <span>Dashboard</span>
+                    </a>
+                    <a class="@(isStaff ? Nav("Claims", "*", "*") : Nav("Claims", "Index", ""))" asp-controller="Claims" asp-action="Index">
+                        @Html.Raw(Icons.Svg("file")) <span>@(isStaff ? "Claims" : "My claims")</span>
+                    </a>
+                    @if (!isStaff)
+                    {
+                        <a class="@Nav("Claims", "New")" asp-controller="Claims" asp-action="New">
+                            @Html.Raw(Icons.Svg("plus")) <span>New claim</span>
+                        </a>
+                        <a class="@Nav("Claims", "Index", "corrections")" asp-controller="Claims" asp-action="Index" asp-route-scope="corrections">
+                            @Html.Raw(Icons.Svg("alert")) <span>Corrections</span>
+                        </a>
+                    }
+                </div>
+
+                @if (isStaff)
+                {
+                    <div class="nav-section">
+                        <div class="nav-label">Management</div>
+                        <a class="@Nav("Artists")" asp-controller="Artists" asp-action="Index">
+                            @Html.Raw(Icons.Svg("users")) <span>Artists</span>
+                        </a>
+                        <a class="@Nav("Programmes")" asp-controller="Programmes" asp-action="Index">
+                            @Html.Raw(Icons.Svg("tv")) <span>Programmes</span>
+                        </a>
+                        <a class="@Nav("Reports")" asp-controller="Reports" asp-action="Index">
+                            @Html.Raw(Icons.Svg("download")) <span>Reports</span>
+                        </a>
+                        <a class="@Nav("Audit")" asp-controller="Audit" asp-action="Index">
+                            @Html.Raw(Icons.Svg("activity")) <span>Audit log</span>
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <div class="nav-section">
+                        <div class="nav-label">Account</div>
+                        <a class="@Nav("Account", "Profile")" asp-controller="Account" asp-action="Profile">
+                            @Html.Raw(Icons.Svg("user")) <span>My profile</span>
+                        </a>
+                    </div>
+                }
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="sidebar-user">
+                    <div class="avatar">@initials</div>
+                    <div>
+                        <div class="sidebar-user-name">@fullName</div>
+                        <div class="sidebar-user-role">@roleLabel</div>
+                    </div>
+                </div>
+                <form method="post" asp-controller="Account" asp-action="Logout" class="logout-form">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="nav-link logout-link">
+                        @Html.Raw(Icons.Svg("logout")) <span>Sign out</span>
+                    </button>
+                </form>
+            </div>
+        </aside>
+
+        <div class="sidebar-scrim" id="sidebarScrim"></div>
+
+        <div class="app-main">
+            <header class="topbar">
+                <button type="button" class="icon-btn menu-btn" id="menuBtn" aria-label="Open navigation">
+                    @Html.Raw(Icons.Svg("menu", 19))
+                </button>
+                <div class="topbar-title">
+                    <h1>@pageTitle</h1>
+                    @if (!string.IsNullOrEmpty(pageSubtitle))
+                    {
+                        <p>@pageSubtitle</p>
+                    }
+                </div>
+                <div class="topbar-user">
+                    <div class="topbar-user-meta">
+                        <div class="topbar-user-name">@fullName</div>
+                        <div class="topbar-user-role">@roleLabel</div>
+                    </div>
+                    <a asp-controller="Account" asp-action="Profile" aria-label="Open profile">
+                        <div class="avatar">@initials</div>
+                    </a>
+                </div>
+            </header>
+
+            <main class="page" id="main">
+                @RenderBody()
+            </main>
+
+            <footer class="app-footer">
+                <span>© @DateTime.Now.Year Namibian Broadcasting Corporation • Claims Management System</span>
+                <span>Confidential • Internal use only</span>
+            </footer>
+        </div>
+    </div>
+
+    <div class="flash-stack" aria-live="polite">
+        @if (TempData["Success"] is string successMessage)
+        {
+            <div class="flash success">
+                @Html.Raw(Icons.Svg("check", 16))
+                <span>@successMessage</span>
+                <button type="button" aria-label="Dismiss">@Html.Raw(Icons.Svg("x", 14))</button>
+            </div>
+        }
+        @if (TempData["Error"] is string errorMessage)
+        {
+            <div class="flash error">
+                @Html.Raw(Icons.Svg("alert", 16))
+                <span>@errorMessage</span>
+                <button type="button" aria-label="Dismiss">@Html.Raw(Icons.Svg("x", 14))</button>
+            </div>
+        }
+    </div>
+
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

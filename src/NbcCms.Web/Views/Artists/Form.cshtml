@@ -1,0 +1,212 @@
+@model ArtistFormViewModel
+@{
+    ViewData["Title"] = Model.IsEdit ? "Edit artist" : "New artist";
+    ViewData["Subtitle"] = Model.IsEdit ? $"{Model.FirstName} {Model.LastName}".Trim() : "Create an artist account";
+    var formAction = Model.IsEdit ? "Edit" : "New";
+}
+<div class="breadcrumb">
+    <a asp-action="Index">Artists</a>
+    @Html.Raw(Icons.Svg("chevron-right", 13))
+    <span>@(Model.IsEdit ? "Edit artist" : "New artist")</span>
+</div>
+
+<div class="page-head">
+    <div>
+        <h2>@(Model.IsEdit ? "Edit artist" : "New artist")</h2>
+        <p>@(Model.IsEdit
+            ? "Update the artist's account, banking details or password."
+            : "The artist will use these details to sign in to the Artist Portal.")</p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-secondary" asp-action="Index">Cancel</a>
+    </div>
+</div>
+
+<form method="post" asp-action="@formAction" asp-route-id="@Model.UserId" novalidate>
+    @Html.AntiForgeryToken()
+    <div class="validation-summary-errors @(ViewData.ModelState.IsValid ? "validation-summary-valid" : "")" asp-validation-summary="ModelOnly"></div>
+
+    <div class="detail-grid">
+        <div class="detail-main">
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Account details</h3>
+                        <p>The name and sign-in details used by the artist.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid two">
+                        <div class="field">
+                            <label asp-for="FirstName" class="label">First name <span class="req">*</span></label>
+                            <input asp-for="FirstName" class="input" autocomplete="given-name" />
+                            <span asp-validation-for="FirstName" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="LastName" class="label">Surname <span class="req">*</span></label>
+                            <input asp-for="LastName" class="input" autocomplete="family-name" />
+                            <span asp-validation-for="LastName" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="Username" class="label">Username <span class="req">*</span></label>
+                            <input asp-for="Username" class="input" autocomplete="off" />
+                            <span asp-validation-for="Username" class="field-validation-error"></span>
+                            <span class="hint">Used to sign in. Letters, numbers, dots, dashes and underscores only.</span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="Email" class="label">Email address <span class="req">*</span></label>
+                            <input asp-for="Email" class="input" autocomplete="email" />
+                            <span asp-validation-for="Email" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="ContactNumber" class="label">Contact number</label>
+                            <input asp-for="ContactNumber" class="input" autocomplete="tel" placeholder="+264 81 000 0000" />
+                            <span asp-validation-for="ContactNumber" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="IdNumber" class="label">ID number</label>
+                            <input asp-for="IdNumber" class="input" />
+                            <span asp-validation-for="IdNumber" class="field-validation-error"></span>
+                        </div>
+                        <div class="field" style="grid-column: 1 / -1;">
+                            <label asp-for="Address" class="label">Address</label>
+                            <input asp-for="Address" class="input" autocomplete="street-address" />
+                            <span asp-validation-for="Address" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <span class="label">Account status</span>
+                            <label class="checkbox">
+                                <input asp-for="IsActive" />
+                                <span>Active — the artist can sign in and submit claims</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Banking details</h3>
+                        <p>Used by the Secretary when preparing the claim for payment.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid three">
+                        <div class="field">
+                            <label asp-for="Bank" class="label">Bank</label>
+                            <input asp-for="Bank" class="input" placeholder="e.g. Bank Windhoek" />
+                            <span asp-validation-for="Bank" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="Branch" class="label">Branch</label>
+                            <input asp-for="Branch" class="input" placeholder="e.g. Klein Windhoek" />
+                            <span asp-validation-for="Branch" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="BranchCode" class="label">Branch code</label>
+                            <input asp-for="BranchCode" class="input" placeholder="e.g. 481-172" />
+                            <span asp-validation-for="BranchCode" class="field-validation-error"></span>
+                        </div>
+                    </div>
+                    <p class="note mt-2">Leave all three fields empty if the banking details are not available yet.</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>@(Model.IsEdit ? "Reset password" : "Sign-in password")</h3>
+                        <p>@(Model.IsEdit
+                            ? "Leave both password fields empty to keep the current password."
+                            : "Provide a password for the artist's first sign-in.")</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid two">
+                        <div class="field">
+                            <label asp-for="Password" class="label">Password @(Model.IsEdit ? "" : "*")</label>
+                            <input asp-for="Password" class="input" autocomplete="new-password" />
+                            <span asp-validation-for="Password" class="field-validation-error"></span>
+                            <span class="hint">At least 8 characters.</span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="ConfirmPassword" class="label">Confirm password</label>
+                            <input asp-for="ConfirmPassword" class="input" autocomplete="new-password" />
+                            <span asp-validation-for="ConfirmPassword" class="field-validation-error"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <aside class="detail-side">
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>@(Model.IsEdit ? "Save changes" : "Create account")</h3>
+                        <p>Review the details before saving.</p>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <dl class="meta-list">
+                        <div class="meta-row">
+                            <dt>Account type</dt>
+                            <dd>Artist</dd>
+                        </div>
+                        <div class="meta-row">
+                            <dt>Can submit claims</dt>
+                            <dd>@(Model.IsActive ? "Yes" : "No — inactive")</dd>
+                        </div>
+                        <div class="meta-row">
+                            <dt>Banking captured</dt>
+                            <dd>@(!string.IsNullOrWhiteSpace(Model.Bank) ? "Yes" : "No")</dd>
+                        </div>
+                    </dl>
+
+                    <div class="divider"></div>
+
+                    <div class="form-actions" style="flex-direction:column; align-items:stretch;">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            @Html.Raw(Icons.Svg("check", 15)) @(Model.IsEdit ? "Save changes" : "Create artist")
+                        </button>
+                        <a class="btn btn-secondary btn-block" asp-action="Index">Cancel</a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Guidance</h3>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <ul class="list-clean">
+                        <li class="list-row" style="padding-top:0;">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("user", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">One account per artist</div>
+                                <div class="list-sub">Usernames and email addresses must be unique across the system.</div>
+                            </div>
+                        </li>
+                        <li class="list-row">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("bank", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">Banking details</div>
+                                <div class="list-sub">These appear on the approved claim report used for payment.</div>
+                            </div>
+                        </li>
+                        <li class="list-row" style="padding-bottom:0;">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("lock", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">Inactive accounts</div>
+                                <div class="list-sub">Deactivating an account blocks sign-in without deleting claim history.</div>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+    </div>
+</form>

@@ -1,0 +1,167 @@
+@model ProgrammesPageViewModel
+@{
+    ViewData["Title"] = "Programmes";
+    ViewData["Subtitle"] = "Manage the programmes available on claims";
+    var editing = Model.Form.ProgrammeId.HasValue;
+    var active = Model.Programmes.Count(p => p.IsActive);
+}
+<div class="page-head">
+    <div>
+        <h2>Programmes</h2>
+        <p>Artists choose from these programmes when capturing a work record.</p>
+    </div>
+</div>
+
+<div class="mini-strip">
+    <div class="mini-item">
+        <div class="mini-label">Programmes</div>
+        <div class="mini-value">@Model.Programmes.Count</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Active</div>
+        <div class="mini-value">@active</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Inactive</div>
+        <div class="mini-value">@(Model.Programmes.Count - active)</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Programmes used on claims</div>
+        <div class="mini-value">@Model.ClaimUsage</div>
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="detail-main">
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Programme list</h3>
+                    <p>Deactivated programmes stay on existing claims but cannot be selected on new ones.</p>
+                </div>
+            </div>
+
+            @if (Model.Programmes.Count == 0)
+            {
+                <div class="empty">
+                    <div class="empty-icon">@Html.Raw(Icons.Svg("tv", 24))</div>
+                    <h3>No programmes yet</h3>
+                    <p>Add the first programme so that artists can capture work records against it.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="data">
+                        <thead>
+                            <tr>
+                                <th>Programme</th>
+                                <th>Status</th>
+                                <th>Last updated</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var programme in Model.Programmes)
+                            {
+                                <tr>
+                                    <td>
+                                        <div class="cell-primary">@programme.ProgrammeName</div>
+                                        @if (!string.IsNullOrWhiteSpace(programme.Description))
+                                        {
+                                            <div class="cell-sub">@programme.Description</div>
+                                        }
+                                    </td>
+                                    <td>
+                                        <span class="status @(programme.IsActive ? "accepted" : "draft")">
+                                            @(programme.IsActive ? "Active" : "Inactive")
+                                        </span>
+                                    </td>
+                                    <td class="small muted nowrap">
+                                        @Formatting.Ago(programme.UpdatedAt ?? programme.CreatedAt)
+                                    </td>
+                                    <td class="cell-actions">
+                                        <div class="nowrap">
+                                            <a class="btn btn-secondary btn-sm" asp-action="Index" asp-route-edit="@programme.ProgrammeId">
+                                                Edit
+                                            </a>
+                                            <form method="post" asp-action="Toggle" asp-route-id="@programme.ProgrammeId"
+                                                  style="display:inline;"
+                                                  data-confirm="@(programme.IsActive ? $"Deactivate '{programme.ProgrammeName}'? Artists will no longer be able to select it." : $"Reactivate '{programme.ProgrammeName}'?")">
+                                                @Html.AntiForgeryToken()
+                                                <button type="submit" class="btn btn-ghost btn-sm">
+                                                    @(programme.IsActive ? "Deactivate" : "Activate")
+                                                </button>
+                                            </form>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    <aside class="detail-side">
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>@(editing ? "Edit programme" : "Add a programme")</h3>
+                    <p>@(editing ? "Update the selected programme." : "Create a new programme option for claims.")</p>
+                </div>
+                @if (editing)
+                {
+                    <a class="link-arrow" asp-action="Index">Cancel</a>
+                }
+            </div>
+            <div class="card-body">
+                <form method="post" asp-action="Save" novalidate>
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" asp-for="Form.ProgrammeId" />
+                    <div class="validation-summary-errors @(ViewData.ModelState.IsValid ? "validation-summary-valid" : "")" asp-validation-summary="ModelOnly"></div>
+
+                    <div class="field">
+                        <label asp-for="Form.ProgrammeName" class="label">Programme name <span class="req">*</span></label>
+                        <input asp-for="Form.ProgrammeName" class="input" placeholder="e.g. Prime News Tonight" />
+                        <span asp-validation-for="Form.ProgrammeName" class="field-validation-error"></span>
+                    </div>
+
+                    <div class="field mt-2">
+                        <label asp-for="Form.Description" class="label">Description</label>
+                        <textarea asp-for="Form.Description" class="textarea" rows="3"
+                                  placeholder="Short description of the programme."></textarea>
+                        <span asp-validation-for="Form.Description" class="field-validation-error"></span>
+                    </div>
+
+                    <div class="field mt-2">
+                        <label class="checkbox">
+                            <input asp-for="Form.IsActive" />
+                            <span>Available for new claims</span>
+                        </label>
+                    </div>
+
+                    <div class="form-actions mt-2" style="flex-direction:column; align-items:stretch;">
+                        <button type="submit" class="btn btn-primary btn-block">
+                            @Html.Raw(Icons.Svg("check", 15)) @(editing ? "Save programme" : "Add programme")
+                        </button>
+                        @if (editing)
+                        {
+                            <a class="btn btn-secondary btn-block" asp-action="Index">Cancel edit</a>
+                        }
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <p class="note">
+                    Programme names must be unique. Renaming a programme does not change the programme
+                    recorded on claims that have already been submitted.
+                </p>
+            </div>
+        </div>
+    </aside>
+</div>

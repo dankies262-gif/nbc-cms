@@ -1,0 +1,25 @@
+﻿@{
+    Layout = "_AuthLayout";
+    var statusCode = ViewData["StatusCode"] as int? ?? 500;
+    ViewData["Title"] = "Something went wrong";
+
+    var (heading, message, icon) = statusCode switch
+    {
+        400 => ("Bad request", "The request could not be processed. Please go back and try again.", "alert"),
+        401 => ("Sign-in required", "Your session may have expired. Sign in again to continue.", "lock"),
+        403 => ("Access denied", "Your account does not have permission to open this page.", "lock"),
+        404 => ("Page not found", "The page you are looking for does not exist or has been moved.", "search"),
+        _ => ("Something went wrong", "An unexpected error occurred while processing your request. Please try again.", "alert")
+    };
+}
+<div class="standalone">
+    <div class="standalone-card">
+        <div class="standalone-logo">
+            <img src="~/img/nbc-logo.png" alt="NBC" />
+        </div>
+        <div class="empty-icon">@Html.Raw(Icons.Svg(icon, 24))</div>
+        <h1>@heading</h1>
+        <p>@message</p>
+        <a class="btn btn-primary" asp-controller="Dashboard" asp-action="Index">Back to dashboard</a>
+    </div>
+</div>

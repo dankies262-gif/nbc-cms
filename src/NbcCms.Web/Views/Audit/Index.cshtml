@@ -1,0 +1,149 @@
+@model List<AuditLog>
+@{
+    ViewData["Title"] = "Audit log";
+    ViewData["Subtitle"] = "Trace actions performed across the system";
+    var actions = ViewData["Actions"] as List<string> ?? [];
+    var selectedAction = ViewData["Action"] as string;
+    var search = ViewData["Search"] as string;
+    var hasFilters = !string.IsNullOrWhiteSpace(selectedAction) || !string.IsNullOrWhiteSpace(search);
+
+    string ActionLabel(string action) => action switch
+    {
+        "Create" => "Claim created",
+        "Update" => "Claim updated",
+        "Submit" => "Claim submitted",
+        "Resubmit" => "Claim resubmitted",
+        "Accept" => "Claim accepted",
+        "Decline" => "Claim declined",
+        "Correction" => "Correction requested",
+        "Report" => "Report generated",
+        "Login" => "Signed in",
+        "LoginFailed" => "Failed sign-in",
+        "UserCreate" => "Artist account created",
+        "UserUpdate" => "Artist account updated",
+        "UserActivate" => "Artist account activated",
+        "UserDeactivate" => "Artist account deactivated",
+        "DocumentUpload" => "Document uploaded",
+        "DocumentDelete" => "Document removed",
+        "ProgrammeCreate" => "Programme added",
+        "ProgrammeUpdate" => "Programme updated",
+        "PasswordChange" => "Password changed",
+        _ => action
+    };
+
+    string EntityLabel(string table) => table switch
+    {
+        "claim" => "Claim",
+        "Users" => "User account",
+        "report" => "Report",
+        "supportingDocument" => "Document",
+        "programme" => "Programme",
+        _ => table
+    };
+
+    string ActionIcon(string action) => action switch
+    {
+        "Accept" or "Report" => "check",
+        "Decline" or "LoginFailed" => "alert",
+        "Correction" => "refresh",
+        "Submit" or "Resubmit" => "send",
+        "DocumentUpload" or "DocumentDelete" => "upload",
+        "UserCreate" or "UserUpdate" or "UserActivate" or "UserDeactivate" => "users",
+        "ProgrammeCreate" or "ProgrammeUpdate" => "tv",
+        _ => "activity"
+    };
+}
+
+<div class="page-head">
+    <div>
+        <h2>Audit log</h2>
+        <p>The most recent 300 recorded actions. Use the filters to trace a specific event.</p>
+    </div>
+</div>
+
+<div class="card">
+    <form method="get" asp-action="Index" class="filter-bar">
+        <div class="search-field">
+            @Html.Raw(Icons.Svg("search", 16))
+            <input class="input" type="search" name="search" value="@search"
+                   placeholder="Search user, entity or action" aria-label="Search audit log" />
+        </div>
+
+        <select class="select" name="actionType" data-autosubmit aria-label="Filter by action" style="max-width:240px;">
+            <option value="">All actions</option>
+            @foreach (var action in actions)
+            {
+                <option value="@action" selected="@(selectedAction == action)">@ActionLabel(action)</option>
+            }
+        </select>
+
+        <button type="submit" class="btn btn-secondary btn-sm">@Html.Raw(Icons.Svg("search", 14)) Filter</button>
+
+        @if (hasFilters)
+        {
+            <a class="btn btn-ghost btn-sm" asp-action="Index">Clear</a>
+        }
+    </form>
+
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <div class="empty-icon">@Html.Raw(Icons.Svg("activity", 24))</div>
+            <h3>No audit entries found</h3>
+            <p>
+                @(hasFilters
+                    ? "No recorded actions match the current filters."
+                    : "Actions are recorded automatically as users sign in and work with claims.")
+            </p>
+            @if (hasFilters)
+            {
+                <a class="btn btn-secondary" asp-action="Index">Clear filters</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Date &amp; time</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Entity</th>
+                        <th>Record</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in Model)
+                    {
+                        <tr>
+                            <td class="small nowrap">@Formatting.Timestamp(entry.ActionDate)</td>
+                            <td>
+                                <div class="cell-primary">@(entry.User?.FullName ?? "System")</div>
+                                <div class="cell-sub">@(entry.User?.Username ?? "—")</div>
+                            </td>
+                            <td>
+                                <div class="list-row" style="border:none; padding:0; gap:9px;">
+                                    <div class="feed-dot">@Html.Raw(Icons.Svg(ActionIcon(entry.ActionType), 13))</div>
+                                    <span class="strong small">@ActionLabel(entry.ActionType)</span>
+                                </div>
+                            </td>
+                            <td class="small">@EntityLabel(entry.TableName)</td>
+                            <td class="small nowrap">
+                                @if (entry.RecordID is int record)
+                                {
+                                    <span class="numeric">#@record</span>
+                                }
+                                else
+                                {
+                                    <span class="muted">—</span>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

@@ -1,0 +1,144 @@
+@model List<ArtistListItemViewModel>
+@{
+    ViewData["Title"] = "Artists";
+    ViewData["Subtitle"] = "Manage artist accounts and banking details";
+    var search = ViewData["Search"] as string;
+    var active = Model.Count(a => a.User.IsActive);
+    var totalClaimed = Model.Sum(a => a.TotalClaimed);
+}
+<div class="page-head">
+    <div>
+        <h2>Artists</h2>
+        <p>Create and maintain the artist accounts that can submit claims.</p>
+    </div>
+    <div class="page-head-actions">
+        <a class="btn btn-primary" asp-action="New">
+            @Html.Raw(Icons.Svg("plus", 16)) New artist
+        </a>
+    </div>
+</div>
+
+<div class="mini-strip">
+    <div class="mini-item">
+        <div class="mini-label">Artist accounts</div>
+        <div class="mini-value">@Model.Count</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Active accounts</div>
+        <div class="mini-value">@active</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Inactive accounts</div>
+        <div class="mini-value">@(Model.Count - active)</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Total claimed</div>
+        <div class="mini-value">@Formatting.Money(totalClaimed)</div>
+    </div>
+</div>
+
+<div class="card">
+    <form method="get" asp-action="Index" class="filter-bar">
+        <div class="search-field">
+            @Html.Raw(Icons.Svg("search", 16))
+            <input class="input" type="search" name="search" value="@search"
+                   placeholder="Search name, username or email" aria-label="Search artists" />
+        </div>
+        <button type="submit" class="btn btn-secondary btn-sm">@Html.Raw(Icons.Svg("search", 14)) Search</button>
+        @if (!string.IsNullOrWhiteSpace(search))
+        {
+            <a class="btn btn-ghost btn-sm" asp-action="Index">Clear</a>
+        }
+    </form>
+
+    @if (Model.Count == 0)
+    {
+        <div class="empty">
+            <div class="empty-icon">@Html.Raw(Icons.Svg("users", 24))</div>
+            <h3>@(string.IsNullOrWhiteSpace(search) ? "No artist accounts yet" : "No artists found")</h3>
+            <p>
+                @(string.IsNullOrWhiteSpace(search)
+                    ? "Create an artist account so that a claimer can sign in and submit claims."
+                    : "No artist matches the current search. Try a different name, username or email.")
+            </p>
+            @if (string.IsNullOrWhiteSpace(search))
+            {
+                <a class="btn btn-primary" asp-action="New">Create an artist account</a>
+            }
+            else
+            {
+                <a class="btn btn-secondary" asp-action="Index">Clear search</a>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="table-wrap">
+            <table class="data">
+                <thead>
+                    <tr>
+                        <th>Artist</th>
+                        <th>Contact</th>
+                        <th>Banking</th>
+                        <th class="right">Claims</th>
+                        <th class="right">Total claimed</th>
+                        <th>Last claim</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var artist in Model)
+                    {
+                        <tr>
+                            <td>
+                                <div class="cell-primary">@artist.User.FullName</div>
+                                <div class="cell-sub">@artist.User.Username</div>
+                            </td>
+                            <td class="small">
+                                <div>@artist.User.Email</div>
+                                <div class="cell-sub">@(artist.User.ContactNumber ?? "No contact number")</div>
+                            </td>
+                            <td class="small">
+                                @if (artist.User.BankingDetail is { } banking)
+                                {
+                                    <div>@banking.Bank</div>
+                                    <div class="cell-sub">@banking.Branch • @banking.BranchCode</div>
+                                }
+                                else
+                                {
+                                    <span class="muted">Not captured</span>
+                                }
+                            </td>
+                            <td class="right numeric">@artist.ClaimCount</td>
+                            <td class="right amount">@Formatting.Money(artist.TotalClaimed)</td>
+                            <td class="small muted nowrap">
+                                @(artist.LastClaimAt.HasValue ? Formatting.Ago(artist.LastClaimAt) : "—")
+                            </td>
+                            <td>
+                                <span class="status @(artist.User.IsActive ? "accepted" : "draft")">
+                                    @(artist.User.IsActive ? "Active" : "Inactive")
+                                </span>
+                            </td>
+                            <td class="cell-actions">
+                                <div class="nowrap">
+                                    <a class="btn btn-secondary btn-sm" asp-action="Edit" asp-route-id="@artist.User.UserId">
+                                        Edit
+                                    </a>
+                                    <form method="post" asp-action="Toggle" asp-route-id="@artist.User.UserId"
+                                          style="display:inline;"
+                                          data-confirm="@(artist.User.IsActive ? $"Deactivate {artist.User.FullName}? They will no longer be able to sign in." : $"Reactivate {artist.User.FullName}?")">
+                                        @Html.AntiForgeryToken()
+                                        <button type="submit" class="btn btn-ghost btn-sm">
+                                            @(artist.User.IsActive ? "Deactivate" : "Activate")
+                                        </button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>

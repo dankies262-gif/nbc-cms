@@ -1,0 +1,184 @@
+@model ClaimsIndexViewModel
+@{
+    ViewData["Title"] = Model.IsStaffView ? "Claims" : "My claims";
+    ViewData["Subtitle"] = Model.IsStaffView ? "Review artist submissions and claim history" : "Track your submitted work records";
+
+    var hasFilters = !string.IsNullOrWhiteSpace(Model.Search) || !string.IsNullOrWhiteSpace(Model.Status) || !string.IsNullOrWhiteSpace(Model.Scope);
+    var allActive = string.IsNullOrWhiteSpace(Model.Scope) && string.IsNullOrWhiteSpace(Model.Status);
+}
+<div class="page-head">
+    <div>
+        <h2>@(Model.IsStaffView ? "Claims" : "My claims")</h2>
+        <p>@(Model.IsStaffView ? "Every claim submitted across the NBC artist workspace." : "Open a claim to review its status, corrections and documents.")</p>
+    </div>
+    <div class="page-head-actions">
+        @if (!Model.IsStaffView)
+        {
+            <a class="btn btn-primary" asp-action="New">
+                @Html.Raw(Icons.Svg("plus", 16)) New claim
+            </a>
+        }
+        else
+        {
+            <a class="btn btn-secondary" asp-controller="Reports" asp-action="Index">
+                @Html.Raw(Icons.Svg("download", 16)) Reports
+            </a>
+        }
+    </div>
+</div>
+
+<div class="mini-strip">
+    <div class="mini-item">
+        <div class="mini-label">Total claims</div>
+        <div class="mini-value">@Model.TotalCount</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Awaiting review</div>
+        <div class="mini-value">@Model.AwaitingReviewCount</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">Needs correction</div>
+        <div class="mini-value">@Model.CorrectionCount</div>
+    </div>
+    <div class="mini-item">
+        <div class="mini-label">@(Model.IsStaffView ? "Total claimed value" : "Accepted value")</div>
+        <div class="mini-value">@Formatting.Money(Model.IsStaffView ? Model.TotalValue : Model.Claims.Where(c => c.Status == ClaimStatusNames.Accepted).Sum(c => c.Amount))</div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-body tight" style="padding-top:14px;">
+        <div class="tabs" style="margin: 0 16px 14px;">
+            <a class="tab @(allActive ? "active" : "")" asp-action="Index" asp-route-search="@Model.Search">
+                All claims <span class="count-chip">@Model.TotalCount</span>
+            </a>
+            @if (Model.IsStaffView)
+            {
+                <a class="tab @(Model.Scope == "review" ? "active" : "")" asp-action="Index" asp-route-scope="review" asp-route-search="@Model.Search">
+                    Needs review <span class="count-chip">@Model.AwaitingReviewCount</span>
+                </a>
+            }
+            <a class="tab @(Model.Scope == "corrections" ? "active" : "")" asp-action="Index" asp-route-scope="corrections" asp-route-search="@Model.Search">
+                Corrections <span class="count-chip">@Model.CorrectionCount</span>
+            </a>
+            <a class="tab @(Model.Status == ClaimStatusNames.Accepted && string.IsNullOrEmpty(Model.Scope) ? "active" : "")" asp-action="Index" asp-route-status="@ClaimStatusNames.Accepted" asp-route-search="@Model.Search">
+                Accepted <span class="count-chip">@Model.AcceptedCount</span>
+            </a>
+        </div>
+
+        <form method="get" asp-action="Index" class="filter-bar">
+            @if (!string.IsNullOrWhiteSpace(Model.Scope))
+            {
+                <input type="hidden" name="scope" value="@Model.Scope" />
+            }
+            <div class="search-field">
+                @Html.Raw(Icons.Svg("search", 16))
+                <input class="input" type="search" name="search" value="@Model.Search"
+                       placeholder="@(Model.IsStaffView ? "Search reference, artist or programme" : "Search reference or programme")"
+                       aria-label="Search claims" />
+            </div>
+
+            <select class="select" name="status" data-autosubmit aria-label="Filter by status" style="max-width:210px;">
+                <option value="">All statuses</option>
+                @foreach (var status in Model.Statuses)
+                {
+                    <option value="@status.StatusName" selected="@(Model.Status == status.StatusName)">@status.StatusName</option>
+                }
+            </select>
+
+            <button type="submit" class="btn btn-secondary btn-sm">@Html.Raw(Icons.Svg("search", 14)) Filter</button>
+
+            @if (hasFilters)
+            {
+                <a class="btn btn-ghost btn-sm" asp-action="Index">Clear</a>
+            }
+        </form>
+
+        @if (Model.Claims.Count == 0)
+        {
+            <div class="empty">
+                <div class="empty-icon">@Html.Raw(Icons.Svg("inbox", 24))</div>
+                <h3>No claims found</h3>
+                <p>
+                    @(hasFilters
+                        ? "No claims match the current filters. Try a different status or search term."
+                        : Model.IsStaffView
+                            ? "Artist claims will appear here as soon as they are submitted."
+                            : "You have not created any claims yet. Start by capturing your work records.")
+                </p>
+                @if (!Model.IsStaffView && !hasFilters)
+                {
+                    <a class="btn btn-primary" asp-action="New">Create your first claim</a>
+                }
+                else if (hasFilters)
+                {
+                    <a class="btn btn-secondary" asp-action="Index">Clear filters</a>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="data">
+                    <thead>
+                        <tr>
+                            <th>Claim</th>
+                            @if (Model.IsStaffView)
+                            {
+                                <th>Artist</th>
+                            }
+                            <th>Programme</th>
+                            <th>Records</th>
+                            <th class="right">Amount</th>
+                            <th>Status</th>
+                            <th>Submitted</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var claim in Model.Claims)
+                        {
+                            <tr>
+                                <td>
+                                    <a class="table-link" asp-action="Details" asp-route-id="@claim.ClaimId">@claim.Reference</a>
+                                    <div class="cell-sub">Claim date @Formatting.Date(claim.ClaimDate)</div>
+                                </td>
+                                @if (Model.IsStaffView)
+                                {
+                                    <td>
+                                        <div>@claim.ClaimantName</div>
+                                        <div class="cell-sub">@claim.ClaimantEmail</div>
+                                    </td>
+                                }
+                                <td class="small">@claim.ProgrammeTitle</td>
+                                <td class="small">
+                                    <span class="nowrap">@claim.ItemCount item@(claim.ItemCount == 1 ? "" : "s")</span>
+                                    @if (claim.DocumentCount > 0)
+                                    {
+                                        <div class="cell-sub">@claim.DocumentCount doc@(claim.DocumentCount == 1 ? "" : "s")</div>
+                                    }
+                                </td>
+                                <td class="right amount">@Formatting.Money(claim.Amount)</td>
+                                <td>
+                                    <span class="status @ClaimStatusNames.Slug(claim.Status)">@claim.Status</span>
+                                    @if (claim.HasOpenCorrection && claim.Status != ClaimStatusNames.CorrectionRequested)
+                                    {
+                                        <div class="cell-sub">Correction requested</div>
+                                    }
+                                </td>
+                                <td class="small muted nowrap">
+                                    @(claim.SubmittedAt is null ? "Not submitted" : Formatting.Ago(claim.SubmittedAt))
+                                </td>
+                                <td class="cell-actions">
+                                    <a class="btn btn-secondary btn-sm" asp-action="Details" asp-route-id="@claim.ClaimId">
+                                        @(Model.IsStaffView && ClaimStatusNames.AwaitingReview.Contains(claim.Status) ? "Review" : "Open")
+                                    </a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

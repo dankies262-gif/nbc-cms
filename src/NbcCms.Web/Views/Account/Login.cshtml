@@ -1,0 +1,91 @@
+@model LoginViewModel
+@inject IWebHostEnvironment Env
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Sign in";
+}
+<div class="auth-shell">
+    <section class="auth-brand">
+        <div class="auth-logo">
+            <img src="~/img/nbc-logo.png" alt="Namibian Broadcasting Corporation" />
+        </div>
+
+        <div class="auth-brand-body">
+            <div class="auth-kicker">Claims Management System</div>
+            <h1>Artist claims,<br />without the paperwork.</h1>
+            <p class="lede">
+                Submit work records, track correction requests and download approved claim
+                reports from one secure NBC workspace.
+            </p>
+
+            <div class="auth-features">
+                <div class="auth-feature">
+                    <span class="tick">@Html.Raw(Icons.Svg("check", 13))</span>
+                    <span>Build and submit claims with supporting documents</span>
+                </div>
+                <div class="auth-feature">
+                    <span class="tick">@Html.Raw(Icons.Svg("check", 13))</span>
+                    <span>Correct returned claims and resubmit for review</span>
+                </div>
+                <div class="auth-feature">
+                    <span class="tick">@Html.Raw(Icons.Svg("check", 13))</span>
+                    <span>Generate and print approved claim reports as PDF</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="auth-brand-foot">Namibian Broadcasting Corporation • Windhoek, Namibia</div>
+    </section>
+
+    <section class="auth-panel">
+        <div class="auth-card">
+            <div class="eyebrow">NBC-CMS</div>
+            <h2>Sign in to your account</h2>
+            <p class="auth-sub">Use the credentials issued by the NBC Secretary's office.</p>
+
+            <form method="post" asp-controller="Account" asp-action="Login" class="auth-form" novalidate>
+                @Html.AntiForgeryToken()
+                <input type="hidden" asp-for="ReturnUrl" />
+                <div asp-validation-summary="ModelOnly" class="validation-summary-errors"></div>
+
+                <div class="field">
+                    <label asp-for="Username" class="label">Username</label>
+                    <input asp-for="Username" class="input" autocomplete="username" autofocus placeholder="e.g. artist.demo" />
+                    <span asp-validation-for="Username" class="field-validation-error"></span>
+                </div>
+
+                <div class="field">
+                    <label asp-for="Password" class="label">Password</label>
+                    <input asp-for="Password" class="input" autocomplete="current-password" placeholder="Enter your password" />
+                    <span asp-validation-for="Password" class="field-validation-error"></span>
+                </div>
+
+                <div class="auth-row">
+                    <label class="checkbox">
+                        <input asp-for="RememberMe" />
+                        <span>Keep me signed in</span>
+                    </label>
+                </div>
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block">
+                    @Html.Raw(Icons.Svg("lock", 16))
+                    Sign in
+                </button>
+            </form>
+
+            @if (Env.IsDevelopment())
+            {
+                <div class="demo-box">
+                    <strong>Demo access</strong><br />
+                    Artist: <code>artist.demo</code> / <code>Artist@@123</code><br />
+                    Secretary: <code>secretary</code> / <code>Secretary@@123</code>
+                </div>
+            }
+
+            <div class="auth-foot">
+                Access is restricted to authorised NBC artists and the Secretary's office.<br />
+                Contact the Secretary if you cannot sign in.
+            </div>
+        </div>
+    </section>
+</div>

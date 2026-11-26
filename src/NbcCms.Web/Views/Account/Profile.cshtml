@@ -1,0 +1,209 @@
+@model ProfileViewModel
+@{
+    var user = Model.User;
+    var isArtist = user.Role.RoleName == RoleNames.Artist;
+    ViewData["Title"] = "My profile";
+    ViewData["Subtitle"] = "Account details and security";
+    var initials = string.Join("", user.FullName.Split(' ', StringSplitOptions.RemoveEmptyEntries).Take(2).Select(p => p[0])).ToUpperInvariant();
+}
+<div class="page-head">
+    <div class="role-strip">
+        <div class="avatar lg">@initials</div>
+        <div>
+            <h2>@user.FullName</h2>
+            <p>@user.Role.RoleName account • @user.Email</p>
+        </div>
+    </div>
+    <div class="page-head-actions">
+        @if (isArtist)
+        {
+            <a class="btn btn-primary" asp-controller="Claims" asp-action="New">
+                @Html.Raw(Icons.Svg("plus", 15)) New claim
+            </a>
+        }
+        else
+        {
+            <a class="btn btn-secondary" asp-controller="Claims" asp-action="Index">
+                @Html.Raw(Icons.Svg("inbox", 15)) Review queue
+            </a>
+        }
+    </div>
+</div>
+
+<div class="detail-grid">
+    <div class="detail-main">
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Account details</h3>
+                    <p>Your personal information as held by NBC-CMS.</p>
+                </div>
+                <span class="status @(user.IsActive ? "accepted" : "draft")">@(user.IsActive ? "Active" : "Inactive")</span>
+            </div>
+            <div class="card-body">
+                <div class="form-grid two">
+                    <dl class="meta-list">
+                        <div class="meta-row"><dt>First name</dt><dd>@user.FirstName</dd></div>
+                        <div class="meta-row"><dt>Surname</dt><dd>@user.LastName</dd></div>
+                        <div class="meta-row"><dt>Username</dt><dd>@user.Username</dd></div>
+                        <div class="meta-row"><dt>Email</dt><dd>@user.Email</dd></div>
+                    </dl>
+                    <dl class="meta-list">
+                        <div class="meta-row"><dt>Contact number</dt><dd>@(user.ContactNumber ?? "—")</dd></div>
+                        <div class="meta-row"><dt>ID number</dt><dd>@(user.IdNumber ?? "—")</dd></div>
+                        <div class="meta-row"><dt>Address</dt><dd>@(user.Address ?? "—")</dd></div>
+                        <div class="meta-row"><dt>Member since</dt><dd>@Formatting.Date(user.CreatedAt)</dd></div>
+                    </dl>
+                </div>
+                <p class="note mt-2">
+                    Contact the Secretary's office if any of these details need to be changed.
+                </p>
+            </div>
+        </div>
+
+        @if (isArtist && user.BankingDetail is { } banking)
+        {
+            <div class="card">
+                <div class="card-head">
+                    <div>
+                        <h3>Banking details</h3>
+                        <p>Used on your approved claim report for payment.</p>
+                    </div>
+                    <span class="doc-icon">@Html.Raw(Icons.Svg("bank", 15))</span>
+                </div>
+                <div class="card-body">
+                    <div class="form-grid three">
+                        <dl class="meta-list">
+                            <div class="meta-row"><dt>Bank</dt><dd>@banking.Bank</dd></div>
+                        </dl>
+                        <dl class="meta-list">
+                            <div class="meta-row"><dt>Branch</dt><dd>@banking.Branch</dd></div>
+                        </dl>
+                        <dl class="meta-list">
+                            <div class="meta-row"><dt>Branch code</dt><dd>@banking.BranchCode</dd></div>
+                        </dl>
+                    </div>
+                    <p class="note mt-2">Ask the Secretary to update these details if they are incorrect.</p>
+                </div>
+            </div>
+        }
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Change password</h3>
+                    <p>Use at least 8 characters and keep your password private.</p>
+                </div>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-controller="Account" asp-action="ChangePassword" novalidate>
+                    @Html.AntiForgeryToken()
+                    <div class="validation-summary-errors @(ViewData.ModelState.IsValid ? "validation-summary-valid" : "")" asp-validation-summary="ModelOnly"></div>
+
+                    <div class="form-grid three">
+                        <div class="field">
+                            <label asp-for="Password.CurrentPassword" class="label">Current password</label>
+                            <input asp-for="Password.CurrentPassword" class="input" autocomplete="current-password" />
+                            <span asp-validation-for="Password.CurrentPassword" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="Password.NewPassword" class="label">New password</label>
+                            <input asp-for="Password.NewPassword" class="input" autocomplete="new-password" />
+                            <span asp-validation-for="Password.NewPassword" class="field-validation-error"></span>
+                        </div>
+                        <div class="field">
+                            <label asp-for="Password.ConfirmPassword" class="label">Confirm new password</label>
+                            <input asp-for="Password.ConfirmPassword" class="input" autocomplete="new-password" />
+                            <span asp-validation-for="Password.ConfirmPassword" class="field-validation-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="form-actions mt-2">
+                        <button type="submit" class="btn btn-primary">
+                            @Html.Raw(Icons.Svg("lock", 15)) Update password
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <aside class="detail-side">
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>@(isArtist ? "Your claims" : "Your role")</h3>
+                    <p>@(isArtist ? "A quick view of your claim activity." : "What you can do in NBC-CMS.")</p>
+                </div>
+            </div>
+            <div class="card-body">
+                @if (isArtist)
+                {
+                    <dl class="meta-list">
+                        <div class="meta-row"><dt>Total claims</dt><dd>@Model.ClaimCount</dd></div>
+                        <div class="meta-row"><dt>Open claims</dt><dd>@Model.PendingCount</dd></div>
+                    </dl>
+                    <div class="divider"></div>
+                    <div class="quick-actions">
+                        <a class="quick-action" asp-controller="Claims" asp-action="Index">
+                            <span class="qa-icon">@Html.Raw(Icons.Svg("file", 16))</span>
+                            <span class="qa-label">My claims</span>
+                            <span class="qa-sub">Track submitted work records</span>
+                        </a>
+                        <a class="quick-action" asp-controller="Claims" asp-action="Index" asp-route-scope="corrections">
+                            <span class="qa-icon">@Html.Raw(Icons.Svg("alert", 16))</span>
+                            <span class="qa-label">Corrections</span>
+                            <span class="qa-sub">Claims returned for correction</span>
+                        </a>
+                    </div>
+                }
+                else
+                {
+                    <ul class="list-clean">
+                        <li class="list-row" style="padding-top:0;">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("inbox", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">Review claims</div>
+                                <div class="list-sub">Accept, decline or request corrections on submitted claims.</div>
+                            </div>
+                        </li>
+                        <li class="list-row">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("printer", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">Generate reports</div>
+                                <div class="list-sub">Produce the PDF claim report for accepted claims.</div>
+                            </div>
+                        </li>
+                        <li class="list-row" style="padding-bottom:0;">
+                            <div class="doc-icon">@Html.Raw(Icons.Svg("users", 14))</div>
+                            <div class="grow">
+                                <div class="list-title">Manage artists</div>
+                                <div class="list-sub">Maintain artist accounts, banking details and programmes.</div>
+                            </div>
+                        </li>
+                    </ul>
+                }
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <div>
+                    <h3>Security</h3>
+                </div>
+            </div>
+            <div class="card-body">
+                <p class="note">
+                    Your session expires automatically after a period of inactivity. Always sign out when
+                    using a shared computer.
+                </p>
+                <form method="post" asp-controller="Account" asp-action="Logout" class="mt-2">
+                    @Html.AntiForgeryToken()
+                    <button type="submit" class="btn btn-secondary btn-block">
+                        @Html.Raw(Icons.Svg("logout", 15)) Sign out
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
+</div>

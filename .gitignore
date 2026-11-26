@@ -1,0 +1,25 @@
+## Build and test output
+bin/
+obj/
+TestResults/
+
+## Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## Runtime data
+src/NbcCms.Web/App_Data/uploads/
+src/NbcCms.Api/App_Data/uploads/
+
+## Local configuration and secrets
+appsettings.Local.json
+*.pfx
+.env
+
+## OS files
+.DS_Store
+Thumbs.db

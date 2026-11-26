@@ -1,0 +1,18 @@
+@{
+    Layout = "_AuthLayout";
+    ViewData["Title"] = "Access denied";
+}
+<div class="standalone">
+    <div class="standalone-card">
+        <div class="standalone-logo">
+            <img src="~/img/nbc-logo.png" alt="NBC" />
+        </div>
+        <div class="empty-icon">@Html.Raw(Icons.Svg("lock", 24))</div>
+        <h1>Access denied</h1>
+        <p>
+            Your account does not have permission to open this page. If you believe this is a
+            mistake, please contact the Secretary's office.
+        </p>
+        <a class="btn btn-primary" asp-controller="Dashboard" asp-action="Index">Return to dashboard</a>
+    </div>
+</div>
