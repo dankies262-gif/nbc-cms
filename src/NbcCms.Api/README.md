@@ -38,12 +38,22 @@ Demo accounts (already present in a seeded development database):
 | --- | --- |
 | `ConnectionStrings:DefaultConnection` | LocalDB database shared with `NbcCms.Web` (`NBC_CMS_Dev`) |
 | `Jwt:Issuer`, `Jwt:Audience` | Token validation values; must match between issue and validation |
-| `Jwt:Key` | HMAC signing key, **at least 32 bytes** (startup fails otherwise) |
+| `Jwt:Key` | HMAC signing key, **at least 32 bytes** (startup fails otherwise). Not committed — see below |
 | `Jwt:LifetimeMinutes` | Token lifetime, default 480 minutes |
 | `Cms:MaxUploadBytes` | Largest accepted supporting document, default 10 MB |
 
-The development signing key in `appsettings.json` must be replaced with a secret
-(for example user secrets, environment variables or a key vault) before deployment.
+The signing key is not stored in `appsettings.json`. Supply a random key of at least 32
+bytes through one of:
+
+- `src/NbcCms.Api/appsettings.Local.json` (git-ignored):
+  ```json
+  { "Jwt": { "Key": "<random key>" } }
+  ```
+- the `Jwt__Key` environment variable, or
+- `dotnet user-secrets set "Jwt:Key" "<random key>" --project src/NbcCms.Api` (Development only).
+
+Generate one with `openssl rand -base64 48`, then restart the API. Rotating the key
+invalidates existing tokens.
 
 ## Authentication
 

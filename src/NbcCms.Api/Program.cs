@@ -15,6 +15,8 @@ using QuestPDF.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 QuestPDF.Settings.License = LicenseType.Community;
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -28,7 +30,8 @@ var jwt = builder.Configuration.GetSection("Jwt").Get<JwtOptions>() ?? new JwtOp
 if (Encoding.UTF8.GetByteCount(jwt.Key) < 32)
 {
     throw new InvalidOperationException(
-        "Jwt:Key must be configured with at least 32 bytes of signing material.");
+        "Jwt:Key must be configured with at least 32 bytes of signing material. " +
+        "Set it in appsettings.Local.json, the Jwt__Key environment variable or dotnet user-secrets.");
 }
 
 builder.Services
